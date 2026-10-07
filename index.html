@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Memoria: El Santo Rosario</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(135deg, #8bc6ec 0%, #9599e2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #4a4e69;
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #f50057;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            padding: 15px;
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        @media (min-width: 600px) {
+            .game-board {
+                gap: 20px;
+            }
+        }
+
+        .card {
+            perspective: 1000px;
+            aspect-ratio: 3 / 4;
+            cursor: pointer;
+            border-radius: 15px;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        
+        .card.matched .card-inner {
+            transform: rotateY(180deg) scale(1.05);
+            box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.6);
+            border-radius: 15px;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            border: 4px solid #fff;
+            padding: 10px;
+        }
+
+        /* Parte trasera de la carta (se ve al inicio) */
+        .card-back {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            font-size: 50px;
+        }
+
+        /* Parte frontal de la carta (el contenido) */
+        .card-front {
+            transform: rotateY(180deg);
+            font-size: 35px;
+            background: white;
+        }
+
+        .card-text {
+            font-size: 13px;
+            font-weight: 800;
+            color: #333;
+            line-height: 1.1;
+            word-wrap: break-word;
+            padding: 5px;
+        }
+
+        @media (min-width: 600px) {
+            .card-text {
+                font-size: 18px;
+            }
+            .card-front {
+                font-size: 45px;
+            }
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 25px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h2 {
+            font-size: 32px;
+            color: #4a4e69;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        button {
+            background: #f50057;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: 800;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(245, 0, 87, 0.3);
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        button:hover {
+            background: #d5004c;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(2px);
+        }
+
+        .emoji-big {
+            font-size: 60px;
+            margin-bottom: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📿 El Santo Rosario 🕊️</h1>
+        <div class="stats">
+            <span id="attempts-display">Intentos: 25</span>
+            <span id="matches-display">Pares: 0/8</span>
+        </div>
+    </header>
+
+    <div class="game-board" id="game-board">
+        <!-- Las cartas se generarán aquí mediante JavaScript -->
+    </div>
+
+    <!-- Modal de Victoria/Derrota -->
+    <div class="modal" id="game-modal">
+        <div class="modal-content">
+            <div class="emoji-big" id="modal-emoji">🎉</div>
+            <h2 id="modal-title">¡Felicidades!</h2>
+            <p id="modal-message">Has completado todos los pares del Rosario.</p>
+            <button onclick="initGame()">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script>
+        // Definición de las cartas (8 pares: Concepto + Imagen)
+        const baseCards = [
+            { id: 1, type: 'text', content: 'ROSARIO', color: '#ffc3a0' },
+            { id: 1, type: 'image', content: '📿', color: '#ffc3a0' },
+            
+            { id: 2, type: 'text', content: 'PADRE NUESTRO', color: '#a18cd1' },
+            { id: 2, type: 'image', content: '🧔🏽‍♂️✝️', color: '#a18cd1' },
+            
+            { id: 3, type: 'text', content: 'GLORIA', color: '#fbc2eb' },
+            { id: 3, type: 'image', content: '☁️✝️🕊️', color: '#fbc2eb' },
+            
+            { id: 4, type: 'text', content: 'MISTERIOS', color: '#8fd3f4' },
+            { id: 4, type: 'image', content: '📖🎨', color: '#8fd3f4' },
+            
+            { id: 5, type: 'text', content: 'PERSIGNARSE', color: '#fddb92' },
+            { id: 5, type: 'image', content: '🤚✝️', color: '#fddb92' },
+            
+            { id: 6, type: 'text', content: 'REGALO', color: '#d4fc79' },
+            { id: 6, type: 'image', content: '🌹', color: '#d4fc79' },
+            
+            { id: 7, type: 'text', content: 'DENARIO', color: '#e0c3fc' },
+            { id: 7, type: 'image', content: '💍📿', color: '#e0c3fc' },
+            
+            { id: 8, type: 'text', content: 'REZAR', color: '#8ec5fc' },
+            { id: 8, type: 'image', content: '👦📿', color: '#8ec5fc' }
+        ];
+
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let attempts = 25;
+        let lockBoard = false;
+        let audioContext = null;
+
+        // Elementos del DOM
+        const board = document.getElementById('game-board');
+        const attemptsDisplay = document.getElementById('attempts-display');
+        const matchesDisplay = document.getElementById('matches-display');
+        const modal = document.getElementById('game-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalEmoji = document.getElementById('modal-emoji');
+
+        // Inicializa el AudioContext en la primera interacción para evitar bloqueos del navegador
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // Sintetizar sonido mágico suave (para los aciertos)
+        function playMagicSound() {
+            if (!audioContext) return;
+            const now = audioContext.currentTime;
+            
+            // Arpegio de notas para sonido mágico (Do, Mi, Sol, Do alto)
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            
+            notes.forEach((freq, i) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                
+                gain.gain.setValueAtTime(0, now + i * 0.08);
+                gain.gain.linearRampToValueAtTime(0.2, now + i * 0.08 + 0.02); 
+                gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.5); 
+                
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                osc.start(now + i * 0.08);
+                osc.stop(now + i * 0.08 + 0.5);
+            });
+        }
+
+        // Sintetizar sonido de aplausos (ruido blanco filtrado para celebrar la victoria)
+        function playApplauseSound() {
+            if (!audioContext) return;
+            const bufferSize = audioContext.sampleRate * 3; // 3 segundos
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 1200;
+            
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(0, audioContext.currentTime);
+            gain.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.5); // Crece gradualmente
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3); // Se desvanece
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            noise.start();
+        }
+
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function initGame() {
+            modal.classList.remove('active');
+            board.innerHTML = '';
+            matchedPairs = 0;
+            attempts = 25;
+            flippedCards = [];
+            lockBoard = false;
+            
+            updateDisplay();
+            
+            // Barajar las cartas
+            cards = shuffle([...baseCards]);
+            
+            // Crear elementos HTML para cada carta
+            cards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card');
+                cardElement.dataset.id = card.id;
+                cardElement.dataset.index = index;
+                
+                // Contenido basado en si es texto o imagen
+                const faceContent = card.type === 'text' 
+                    ? `<span class="card-text">${card.content}</span>` 
+                    : card.content;
+
+                cardElement.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-face card-back">🙏</div>
+                        <div class="card-face card-front" style="background-color: ${card.color}">
+                            ${faceContent}
+                        </div>
+                    </div>
+                `;
+                
+                cardElement.addEventListener('click', () => flipCard(cardElement, card));
+                board.appendChild(cardElement);
+            });
+        }
+
+        function flipCard(cardElement, cardData) {
+            initAudio(); // Activa el audio si es el primer clic
+            
+            if (lockBoard) return;
+            if (cardElement === flippedCards[0]?.element) return;
+            if (cardElement.classList.contains('matched')) return;
+
+            cardElement.classList.add('flipped');
+            flippedCards.push({ element: cardElement, data: cardData });
+
+            if (flippedCards.length === 2) {
+                lockBoard = true;
+                attempts--;
+                updateDisplay();
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            const isMatch = flippedCards[0].data.id === flippedCards[1].data.id;
+
+            if (isMatch) {
+                disableCards();
+            } else {
+                unflipCards();
+            }
+        }
+
+        function disableCards() {
+            playMagicSound();
+            flippedCards[0].element.classList.add('matched');
+            flippedCards[1].element.classList.add('matched');
+            
+            matchedPairs++;
+            updateDisplay();
+            resetBoard();
+
+            if (matchedPairs === 8) {
+                setTimeout(winGame, 500);
+            } else if (attempts === 0) {
+                setTimeout(loseGame, 500);
+            }
+        }
+
+        function unflipCards() {
+            setTimeout(() => {
+                flippedCards[0].element.classList.remove('flipped');
+                flippedCards[1].element.classList.remove('flipped');
+                resetBoard();
+                
+                // Revisar derrota si se acaban los intentos
+                if (attempts === 0 && matchedPairs < 8) {
+                    loseGame();
+                }
+            }, 1000);
+        }
+
+        function resetBoard() {
+            [flippedCards, lockBoard] = [[], false];
+        }
+
+        function updateDisplay() {
+            attemptsDisplay.innerText = `Intentos: ${attempts}`;
+            matchesDisplay.innerText = `Pares: ${matchedPairs}/8`;
+        }
+
+        function winGame() {
+            playApplauseSound();
+            modalEmoji.innerText = '🎉👼🎉';
+            modalTitle.innerText = '¡Felicidades!';
+            modalTitle.style.color = '#4caf50';
+            modalMessage.innerText = '¡Encontraste todos los elementos del Rosario! Eres muy inteligente.';
+            modal.classList.add('active');
+        }
+
+        function loseGame() {
+            modalEmoji.innerText = '🥺';
+            modalTitle.innerText = '¡Sigue intentando!';
+            modalTitle.style.color = '#f44336';
+            modalMessage.innerText = 'Te has quedado sin intentos. ¡No te rindas, vuelve a intentarlo!';
+            modal.classList.add('active');
+        }
+
+        // Iniciar el juego al cargar la página
+        window.onload = initGame;
+    </script>
+</body>
+</html>
